@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sanadura-Rechner</title>
+  <style>
+    :root{
+      --border:#e7e7e7;
+      --muted:#666;
+      --bg:#fff;
+      --bg2:#fafafa;
+      --okbg:#e8f7ee;
+      --okfg:#0a6b2a;
+      --nobg:#fdecec;
+      --nofg:#8a0b0b;
+      --warnbg:#fff7e6;
+      --warnfg:#7a4b00;
+      --chip:#f1f1f1;
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 12px; background: #fff; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+    @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+    .card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--bg); }
+    .title { font-weight: 800; font-size: 16px; }
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .kpi { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .kpi .item { flex: 1 1 180px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); }
+    .kpi .label { font-size: 12px; color: var(--muted); }
+    .kpi .value { font-size: 18px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 800; font-size: 12px; }
+    .ok { background: var(--okbg); color: var(--okfg); }
+    .no { background: var(--nobg); color: var(--nofg); }
+    .warn { background: var(--warnbg); color: var(--warnfg); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    th { text-align: left; font-weight: 800; font-size: 12px; color: #222; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding: 4px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; }
+    button { padding: 7px 10px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-weight: 700; font-size: 12px; }
+    button:hover { background: #f7f7f7; }
+    .mini { font-size: 12px; }
+    .divider { height: 1px; background: var(--border); margin: 12px 0; }
+    .hl { font-weight: 800; }
+    .note { padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: #fcfcfc; }
+    .list { display:grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+    .callout { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:10px; border:1px solid var(--border); border-radius:10px; background: var(--bg2); }
+    .callout .left { min-width: 0; }
+    .callout .right { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stickyHeader { display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; }
+    .tag { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); background: #fff; }
+    .warnline { margin-top: 8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .smallcaps { letter-spacing: .04em; text-transform: uppercase; font-size: 11px; font-weight: 800; color: #333; }
+    .compact td { padding: 7px; }
+  </style>
+</head>
+<body>
+
+  <div class="grid">
+    <!-- LEFT: Controls + Table -->
+    <div class="card">
+      <div class="stickyHeader">
+        <div>
+          <div class="title">Sanadura-Rechner (interaktiv)</div>
+          <div class="muted">
+            Setze Gemeinden auf «Ja». Resultat berechnet live: <span class="hl">mindestens 7 Gemeinden</span> und <span class="hl">mindestens 8’360 Einwohner</span> (ständige Wohnbevölkerung).
+          </div>
+        </div>
+        <div class="row">
+          <button id="presetAlbula">Voreinstellung: Albula 2025</button>
+          <button id="presetUebergang">Voreinstellung: Übergang 2025</button>
+          <button id="allYes">Alle Ja</button>
+          <button id="reset">Reset</button>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="item">
+          <div class="label">Ja-Gemeinden</div>
+          <div class="value"><span id="yesCount" class="badge no">0 / 11</span></div>
+          <div class="hint">Schwelle: ≥ 7</div>
+        </div>
+        <div class="item">
+          <div class="label">Bevölkerung Ja</div>
+          <div class="value"><span id="yesPop" class="badge no">0</span></div>
+          <div class="hint">Schwelle: ≥ 8’360</div>
+        </div>
+        <div class="item">
+          <div class="label">Gesamtresultat</div>
+          <div class="value"><span id="outcome" class="badge no">kommt nicht zustande</span></div>
+          <div class="hint" id="missingText">Fehlt: 7 Gemeinden / 8’360 Einwohner</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row" style="justify-content:space-between;">
+        <div class="smallcaps">Gemeinden</div>
+        <div class="pill"><span class="hl">Klick</span>: Checkbox = «Ja»</div>
+      </div>
+
+      <div style="margin-top:8px;">
+        <table class="compact">
+          <thead>
+            <tr>
+              <th>Gemeinde</th>
+              <th class="num">Ständige Wohnbevölkerung</th>
+              <th>Termin</th>
+              <th>Ja?</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: Explanations + Decider analysis -->
+    <div class="card">
+      <div class="title">Was fehlt noch? Wer könnte «entscheidend» werden?</div>
+      <div class="muted">
+        Diese Box zeigt, ob einzelne Gemeinden (v. a. St. Moritz / Zuoz) in der aktuellen Konstellation das Resultat rechnerisch drehen könnten.
+        Das ist keine Prognose, nur Mathematik.
+      </div>
+
+      <div class="warnline">
+        <span class="tag">Regel 1: ≥ 7 Gemeinden</span>
+        <span class="tag">Regel 2: ≥ 8’360 Einwohner</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="note">
+        <div class="row" style="justify-content:space-between;">
+          <div class="smallcaps">Fehlbetrag</div>
+          <div class="pill"><span id="gapMuni">–</span> Gemeinden · <span id="gapPop">–</span> Einwohner</div>
+        </div>
+        <div class="muted" style="margin-top:6px" id="gapExplain">–</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="smallcaps">Mögliche «Drehpunkte»</div>
+      <div class="list">
+        <div class="callout" id="deciderStm">
+          <div class="left">
+            <div class="hl">St. Moritz</div>
+            <div class="muted">Gewicht: 4’997</div>
+            <div class="hint" id="stmHint">–</div>
+          </div>
+          <div class="right"><span id="stmBadge" class="badge warn">prüfen</span></div>
+        </div>
+
+        <div class="callout" id="deciderZuoz">
+          <div class="left">
+            <div class="hl">Zuoz</div>
+            <div class="muted">Gewicht: 1’224</div>
+            <div class="hint" id="zuozHint">–</div>
+          </div>
+          <div class="right"><span id="zuozBadge" class="badge warn">prüfen</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="smallcaps">Kurzinterpretation</div>
+      <div class="muted" id="readout">
+        Setze Gemeinden auf «Ja», dann erscheint hier die klare Aussage, ob bereits alles erfüllt ist oder ob es rechnerisch noch «zittern» kann.
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="smallcaps">Voreinstellungen</div>
+      <div class="muted">
+        «Albula 2025» und «Übergang 2025» setzen die Ja/Nein-Verteilung gemäss den historischen Ergebnissen. So kann man sehen, dass diese Vorlagen unter der heutigen Doppelmehr-Logik rechnerisch bestanden hätten.
+      </div>
+    </div>
+  </div>
+
+<script>
+  const THRESHOLD_MUNI = 7;
+  const THRESHOLD_POP = 8360;
+
+  // Dates for reader orientation
+  const DATE_DEFAULT = "4. Feb";
+  const DATE_ZUOZ = "4. März";
+  const DATE_STM = "8. März";
+
+  // Core data (names must stay consistent across presets)
+  const data = [
+    { name: "Bever", pop: 618, yes: false, date: DATE_DEFAULT },
+    { name: "Celerina/Schlarigna", pop: 1415, yes: false, date: DATE_DEFAULT },
+    { name: "Madulain", pop: 196, yes: false, date: DATE_DEFAULT },
+    { name: "Pontresina", pop: 2072, yes: false, date: DATE_DEFAULT },
+    { name: "La Punt Chamues-ch", pop: 750, yes: false, date: DATE_DEFAULT },
+    { name: "Samedan", pop: 2901, yes: false, date: DATE_DEFAULT },
+    { name: "St. Moritz", pop: 4997, yes: false, date: DATE_STM },
+    { name: "S-chanf", pop: 713, yes: false, date: DATE_DEFAULT },
+    { name: "Sils im Engadin/Segl", pop: 708, yes: false, date: DATE_DEFAULT },
+    { name: "Silvaplana", pop: 1124, yes: false, date: DATE_DEFAULT },
+    { name: "Zuoz", pop: 1224, yes: false, date: DATE_ZUOZ }
+  ];
+
+  const elRows = document.getElementById("rows");
+  const elYesCount = document.getElementById("yesCount");
+  const elYesPop = document.getElementById("yesPop");
+  const elOutcome = document.getElementById("outcome");
+  const elMissingText = document.getElementById("missingText");
+
+  const elGapMuni = document.getElementById("gapMuni");
+  const elGapPop = document.getElementById("gapPop");
+  const elGapExplain = document.getElementById("gapExplain");
+
+  const elStmBadge = document.getElementById("stmBadge");
+  const elZuozBadge = document.getElementById("zuozBadge");
+  const elStmHint = document.getElementById("stmHint");
+  const elZuozHint = document.getElementById("zuozHint");
+  const elReadout = document.getElementById("readout");
+
+  function formatCH(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "’");
+  }
+
+  function sumYesPop(arr) {
+    return arr.filter(g => g.yes).reduce((s, g) => s + g.pop, 0);
+  }
+
+  function countYes(arr) {
+    return arr.filter(g => g.yes).length;
+  }
+
+  function getByName(name){
+    return data.find(g => g.name === name);
+  }
+
+  function renderTable() {
+    elRows.innerHTML = "";
+    data.forEach((g, idx) => {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = g.name;
+
+      const tdPop = document.createElement("td");
+      tdPop.className = "num";
+      tdPop.textContent = formatCH(g.pop);
+
+      const tdDate = document.createElement("td");
+      tdDate.innerHTML = `<span class="pill">${g.date}</span>`;
+
+      const tdYes = document.createElement("td");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = g.yes;
+      cb.addEventListener("change", () => {
+        data[idx].yes = cb.checked;
+        update();
+      });
+      tdYes.appendChild(cb);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdPop);
+      tr.appendChild(tdDate);
+      tr.appendChild(tdYes);
+      elRows.appendChild(tr);
+    });
+  }
+
+  function compute() {
+    const yesCount = countYes(data);
+    const yesPop = sumYesPop(data);
+    const muniOk = yesCount >= THRESHOLD_MUNI;
+    const popOk = yesPop >= THRESHOLD_POP;
+    const ok = muniOk && popOk;
+
+    const muniGap = Math.max(0, THRESHOLD_MUNI - yesCount);
+    const popGap = Math.max(0, THRESHOLD_POP - yesPop);
+
+    return { yesCount, yesPop, muniOk, popOk, ok, muniGap, popGap };
+  }
+
+  function applyUIStatus(el, conditionOk) {
+    el.className = "badge " + (conditionOk ? "ok" : "no");
+  }
+
+  function deciderCheck(targetName) {
+    const target = getByName(targetName);
+    if (!target) return null;
+
+    const base = compute();
+    const alreadyYes = target.yes;
+
+    // If it's already yes, then it can't "flip to yes" (it already is).
+    // So we also check if flipping it to NO would break an already-passing scenario.
+    const scenarioToYes = (() => {
+      if (alreadyYes) return null;
+      const hypotheticalYesCount = base.yesCount + 1;
+      const hypotheticalYesPop = base.yesPop + target.pop;
+      const muniOk = hypotheticalYesCount >= THRESHOLD_MUNI;
+      const popOk = hypotheticalYesPop >= THRESHOLD_POP;
+      return { muniOk, popOk, ok: muniOk && popOk, yesCount: hypotheticalYesCount, yesPop: hypotheticalYesPop };
+    })();
+
+    const scenarioToNo = (() => {
+      if (!alreadyYes) return null;
+      const hypotheticalYesCount = base.yesCount - 1;
+      const hypotheticalYesPop = base.yesPop - target.pop;
+      const muniOk = hypotheticalYesCount >= THRESHOLD_MUNI;
+      const popOk = hypotheticalYesPop >= THRESHOLD_POP;
+      return { muniOk, popOk, ok: muniOk && popOk, yesCount: hypotheticalYesCount, yesPop: hypotheticalYesPop };
+    })();
+
+    return { base, target, alreadyYes, scenarioToYes, scenarioToNo };
+  }
+
+  function updateDeciders() {
+    const base = compute();
+
+    // St. Moritz
+    const stm = deciderCheck("St. Moritz");
+    if (stm.alreadyYes) {
+      // if it turned NO, would it break?
+      const breaks = stm.scenarioToNo && !stm.scenarioToNo.ok && base.ok;
+      elStmBadge.className = "badge " + (breaks ? "warn" : (base.ok ? "ok" : "warn"));
+      elStmBadge.textContent = breaks ? "kritisch" : (base.ok ? "gesetzt" : "gesetzt");
+      elStmHint.textContent = breaks
+        ? "Wenn St. Moritz auf Nein fällt, kippt das Resultat."
+        : "St. Moritz ist bereits auf Ja gesetzt.";
+    } else {
+      const flips = stm.scenarioToYes && stm.scenarioToYes.ok && !base.ok;
+      elStmBadge.className = "badge " + (flips ? "warn" : "no");
+      elStmBadge.textContent = flips ? "kann drehen" : "reicht nicht";
+      elStmHint.textContent = flips
+        ? `Ein Ja von St. Moritz würde genügen (${stm.scenarioToYes.yesCount}/11, ${formatCH(stm.scenarioToYes.yesPop)} Ew.).`
+        : "Ein Ja von St. Moritz allein würde die fehlenden Hürden nicht komplett erfüllen.";
+    }
+
+    // Zuoz
+    const zuoz = deciderCheck("Zuoz");
+    if (zuoz.alreadyYes) {
+      const breaks = zuoz.scenarioToNo && !zuoz.scenarioToNo.ok && base.ok;
+      elZuozBadge.className = "badge " + (breaks ? "warn" : (base.ok ? "ok" : "warn"));
+      elZuozBadge.textContent = breaks ? "kritisch" : (base.ok ? "gesetzt" : "gesetzt");
+      elZuozHint.textContent = breaks
+        ? "Wenn Zuoz auf Nein fällt, kippt das Resultat."
+        : "Zuoz ist bereits auf Ja gesetzt.";
+    } else {
+      const flips = zuoz.scenarioToYes && zuoz.scenarioToYes.ok && !base.ok;
+      elZuozBadge.className = "badge " + (flips ? "warn" : "no");
+      elZuozBadge.textContent = flips ? "kann drehen" : "reicht nicht";
+      elZuozHint.textContent = flips
+        ? `Ein Ja von Zuoz würde genügen (${zuoz.scenarioToYes.yesCount}/11, ${formatCH(zuoz.scenarioToYes.yesPop)} Ew.).`
+        : "Ein Ja von Zuoz allein würde die fehlenden Hürden nicht komplett erfüllen.";
+    }
+  }
+
+  function updateReadout() {
+    const c = compute();
+
+    if (c.ok) {
+      elReadout.textContent =
+        "Beide Hürden sind erfüllt. Spätere Entscheide einzelner Gemeinden können nur noch dann relevant werden, wenn eine aktuell auf Ja stehende Gemeinde am Ende doch Nein sagt.";
+      return;
+    }
+
+    const parts = [];
+    if (!c.muniOk) parts.push(`es fehlen ${c.muniGap} Gemeinde(n) zur 7er-Hürde`);
+    if (!c.popOk) parts.push(`es fehlen ${formatCH(c.popGap)} Einwohner zur Bevölkerungsmehrheit`);
+    const detail = parts.join(" und ");
+
+    elReadout.textContent =
+      `Aktuell ist Sanadura rechnerisch noch nicht durch: ${detail}. Entscheidend werden jene Gemeinden, die genau diese Lücke(n) schliessen könnten.`;
+  }
+
+  function update() {
+    const c = compute();
+
+    elYesCount.textContent = `${c.yesCount} / 11`;
+    applyUIStatus(elYesCount, c.muniOk);
+
+    elYesPop.textContent = formatCH(c.yesPop);
+    applyUIStatus(elYesPop, c.popOk);
+
+    elOutcome.textContent = c.ok ? "kommt zustande" : "kommt nicht zustande";
+    elOutcome.className = "badge " + (c.ok ? "ok" : "no");
+
+    // missing text line under outcome
+    const muniNeed = c.muniGap;
+    const popNeed = c.popGap;
+    if (c.ok) {
+      elMissingText.textContent = "Beide Bedingungen erfüllt.";
+    } else {
+      const m = muniNeed > 0 ? `${muniNeed} Gemeinde(n)` : "0 Gemeinden";
+      const p = popNeed > 0 ? `${formatCH(popNeed)} Einwohner` : "0 Einwohner";
+      elMissingText.textContent = `Fehlt: ${m} / ${p}`;
+    }
+
+    // Gap panel
+    elGapMuni.textContent = c.muniGap;
+    elGapPop.textContent = formatCH(c.popGap);
+
+    if (c.ok) {
+      elGapExplain.textContent =
+        "Rechnerisch ist die Doppelmehrheit erreicht. Jede spätere «Zitterfrage» entsteht nur noch durch das Umschwenken einer aktuell auf Ja stehenden Gemeinde.";
+    } else {
+      const expl = [];
+      if (c.muniGap > 0) expl.push(`Gemeindemehrheit: Es fehlen noch ${c.muniGap} Ja-Gemeinde(n) (Schwelle: 7).`);
+      if (c.popGap > 0) expl.push(`Bevölkerungsmehrheit: Es fehlen noch ${formatCH(c.popGap)} Einwohner (Schwelle: 8’360).`);
+      elGapExplain.textContent = expl.join(" ");
+    }
+
+    updateDeciders();
+    updateReadout();
+  }
+
+  function setAllNo() { data.forEach(g => g.yes = false); }
+  function setAllYes() { data.forEach(g => g.yes = true); }
+
+  function setPreset(namesYes) {
+    setAllNo();
+    const yesSet = new Set(namesYes);
+    data.forEach(g => { g.yes = yesSet.has(g.name); });
+    renderTable();
+    update();
+  }
+
+  // Preset: Albula 2025 (your list)
+  document.getElementById("presetAlbula").addEventListener("click", () => {
+    setPreset([
+      "St. Moritz",
+      "Celerina/Schlarigna",
+      "Bever",
+      "Sils im Engadin/Segl",
+      "Madulain",
+      "Pontresina",
+      "Zuoz"
+    ]);
+  });
+
+  // Preset: Übergangsfinanzierung 2025 (your list)
+  document.getElementById("presetUebergang").addEventListener("click", () => {
+    setPreset([
+      "Bever",
+      "Celerina/Schlarigna",
+      "La Punt Chamues-ch",
+      "Sils im Engadin/Segl",
+      "Pontresina",
+      "Samedan",
+      "S-chanf"
+    ]);
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    setAllNo();
+    renderTable();
+    update();
+  });
+
+  document.getElementById("allYes").addEventListener("click", () => {
+    setAllYes();
+    renderTable();
+    update();
+  });
+
+  renderTable();
+  update();
+</script>
+
+</body>
+</html>
