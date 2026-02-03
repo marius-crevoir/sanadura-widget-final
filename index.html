@@ -54,6 +54,11 @@
     .warnline { margin-top: 8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .smallcaps { letter-spacing: .04em; text-transform: uppercase; font-size: 11px; font-weight: 800; color: #333; }
     .compact td { padding: 7px; }
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -469,3 +474,4 @@
 
 </body>
 </html>
+
